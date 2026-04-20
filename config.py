@@ -146,17 +146,29 @@ class Config:
 
     def sort(self):
         if self.sorted & SORT_GROUPS > 0:
-            self.cfg_parser._sections = OrderedDict(
-                sorted(self.cfg_parser._sections.items(), key=lambda t: t[0])
-            )
-        if self.sorted & SORT_NAMES == SORT_NAMES:
-            scl = configparser.ConfigParser()
-            scl.read_dict(self.cfg_parser)
-            self.cfg_parser = configparser.ConfigParser()
-            for section in scl.sections():
-                self.cfg_parser.add_section(section)
-                for key, value in sorted(scl.items(section)):
-                    self.cfg_parser.set(section, key, value)
+            # Sort sections and recreate the parser
+            sorted_sections = sorted(self.cfg_parser.sections())
+            new_parser = configparser.ConfigParser()
+            for section in sorted_sections:
+                new_parser.add_section(section)
+                # Sort options within sections if SORT_NAMES is set
+                if self.sorted & SORT_NAMES == SORT_NAMES:
+                    sorted_items = sorted(self.cfg_parser.items(section))
+                    for key, value in sorted_items:
+                        new_parser.set(section, key, value)
+                else:
+                    for key, value in self.cfg_parser.items(section):
+                        new_parser.set(section, key, value)
+            self.cfg_parser = new_parser
+        elif self.sorted & SORT_NAMES == SORT_NAMES:
+            # Only sort options within existing sections
+            new_parser = configparser.ConfigParser()
+            for section in self.cfg_parser.sections():
+                new_parser.add_section(section)
+                sorted_items = sorted(self.cfg_parser.items(section))
+                for key, value in sorted_items:
+                    new_parser.set(section, key, value)
+            self.cfg_parser = new_parser
 
     def load(self, file_name):
         try:
@@ -191,3 +203,6 @@ class Config:
         if self.changed:
             self.save_to(self.file_name)
             self.changed = False
+
+    def close(self):
+        self.save()

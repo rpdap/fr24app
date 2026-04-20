@@ -4,12 +4,17 @@ import os
 
 
 class Log:
-    def __init__(self, name, log_file=None, level=logging.DEBUG, rewrite_file=False):
+    def __init__(self, name, log_file, level=logging.INFO, rewrite_file=False):
 
         if rewrite_file or not os.path.isfile(log_file):
-            with open(log_file, "w") as f:
-                f.write("timestamp               | name       | level    | message\n")
-            rewrite_file = False
+            try:
+                with open(log_file, "w") as f:
+                    f.write(
+                        "timestamp               | name       | level    | message\n"
+                    )
+                rewrite_file = False
+            except IOError as e:
+                print(e.errno, (e.strerror or ""))
 
         logging.basicConfig(
             filename=log_file,

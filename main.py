@@ -50,11 +50,20 @@ def arg_prepare():  # command line argument definition
             },
             {
                 "name_or_flags": ["--logfile", "-log"],
-                "kwargs": {"type": str, "help": "Log file name", "required": False},
+                "kwargs": {
+                    "type": str,
+                    "help": "Application log file",
+                    "required": False,
+                },
             },
             {
                 "name_or_flags": ["--airspace", "-asp"],
-                "kwargs": {"type": str, "help": "FIC airspace(s)", "required": True},
+                "kwargs": {
+                    "type": str,
+                    "help": "FIC airspace(s)",
+                    "required": False,
+                    "default": "LIMM,LIRR,LIBB",
+                },
             },
             {
                 "name_or_flags": ["--full", "-fl"],
@@ -76,16 +85,18 @@ def arg_prepare():  # command line argument definition
                 "name_or_flags": ["--hours", "-hrs"],
                 "kwargs": {
                     "type": int,
-                    "help": "Hours limit (0 = endless)",
-                    "required": True,
+                    "help": "Hours limit (0 = endless, default 1)",
+                    "required": False,
+                    "default": 1,
                 },
             },
             {
                 "name_or_flags": ["--minutes", "-min"],
                 "kwargs": {
                     "type": int,
-                    "help": "Minutes interval (default 10)",
-                    "required": True,
+                    "help": "Minutes interval (default 15)",
+                    "required": False,
+                    "default": 15,
                 },
             },
         ]
@@ -112,7 +123,6 @@ def db_connect(connect):  # connect to database (for now only oracle)
                 port=cfg.get("db", "port"),
                 service_name=cfg.get("db", "service"),
             )
-            print(type(dbc))
             log.info("Connected to DB!")
         except Exception as e:
             log.error("Database " + cfg.get("db", "engine") + " problem " + str(e))
@@ -182,7 +192,7 @@ def data_mining():
     try:
         client = Client(api_token=cfg.get("api", "token"))
         if client:
-            log.info("API connected!")
+            # log.info("API connected!")
             sleep_interval = int(cfg.get("", "minutes")) * 60
             hours_limit = int(cfg.get("", "hours"))
             loop_count = -1000
@@ -190,9 +200,7 @@ def data_mining():
                 loop_count = int((hours_limit * 3600) / sleep_interval)
             log.info(
                 f"Data mining Live Flight Positions {version.upper()}, airspaces {airspaces} : with {sleep_interval} seconds interval."
-                + (f" Period {hours_limit} hour(s).")
-                if hours_limit > 0
-                else ""
+                + (f" Period {hours_limit} hour(s)." if hours_limit > 0 else "")
             )
             while loop_count != 0:
                 if loop_count != 0:
@@ -247,7 +255,7 @@ def data_mining():
 
                     if loop_count != -1000 and loop_count != 0:
                         loop_count -= 1
-                    msg = f"Waiting {sleep_interval} seconds."
+                    msg = f"Waiting {sleep_interval} seconds. (Ctrl+C to stop)"
                     if loop_count > 0:
                         msg = msg + " " + str(loop_count) + " loops remainig."
                     if loop_count != 0:
@@ -263,9 +271,14 @@ def data_mining():
 def main():
     configure()
     db_connect(True)
-    data_mining()
-    db_connect(False)
-    app_log.close()
+    try:
+        data_mining()
+    except KeyboardInterrupt:
+        log.info("The program was terminated by the user!")
+    finally:
+        db_connect(False)
+        cfg.close()
+        app_log.close()
 
 
 if __name__ == "__main__":

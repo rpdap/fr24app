@@ -6,12 +6,12 @@
     "configurations": [
 
         {
-            "name": "Python Debugger: Current File",
-            "type": "debugpy",
+            "name": "Python: Current File",
+            "type": "python",
             "request": "launch",
             "program": "${file}",
-            "console": "integratedTerminal",
-            "args": ["-cfg=C:/Projekty/Python/fr24app/app.ini", "-asp=LIMM,LIRR,LIBB", "-lt", "-hrs=1", "-min=10"] 
+            "console": "integratedTerminal"
+            "justMyCode": true
         }
     ]
 }
