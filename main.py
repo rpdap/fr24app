@@ -3,7 +3,6 @@ import time
 import config
 from log import Log
 import oracledb
-
 from fr24sdk.client import Client
 from fr24sdk.exceptions import (
     ApiError,
@@ -11,66 +10,90 @@ from fr24sdk.exceptions import (
     Fr24SdkError,
 )  # Import relevant exceptions
 
+dbc: oracledb.Connection
+
 
 def configure():  # load configuration file and parse args from command line
-    global app_path
-    app_path = config.mainPath()
-    global logger_file
-    logger_file = app_path + "app.log"
-    global config_file
-    config_file = app_path + "app.ini"
+    global cfg
+    cfg = config.Config(app_name="FlightRadar24 API")
+    arg_prepare()
+    cfg.parse()
+
+    logger_file = cfg.get("", "logfile")
+    if not logger_file:
+        logger_file = cfg.mainpath(False) + "app.log"
     global app_log
     app_log = Log("app", log_file=logger_file, rewrite_file=False)
     global log
     log = app_log.get_logger()
-    log.info("Load configuration " + config_file)
-    global cfg
-    cfg = config.Config(file_name=config_file, app_name="FlightRadar24.py")
+
+    global config_file
+    config_file = cfg.load(cfg.get("", "logf"))
     if cfg.error():
         log.error(cfg.get_result(True))
         sys.exit(cfg.get_result_code())
-    cfg.auto_save = True
-    arg_prepare()
-    cfg.read()
+    else:
+        log.info("Configuration from file: " + cfg.file_name)
+        cfg.auto_save = True
 
 
 def arg_prepare():  # command line argument definition
-    cfg.arg_parser.add_argument(
-        "-asp",
-        "--airspace",
-        help="FIC airspace(s) id(s) ex: LIMM,LIRR,LIBB",
-        required=False,
-        default=cfg.get("map", "airspaces"),
-    )
-    cfg.arg_parser.add_argument(
-        "-fl",
-        "--full",
-        help="full version",
-        action="store_true",
-        required=False,
-    )
-    cfg.arg_parser.add_argument(
-        "-lt",
-        "--light",
-        help="light version (default)",
-        action="store_true",
-        required=False,
-    )
-    cfg.arg_parser.add_argument(
-        "-hrs",
-        "--hours",
-        help="hours limit (default 0 = endless)",
-        required=False,
-    )
-    cfg.arg_parser.add_argument(
-        "-min",
-        "--minutes",
-        help="minutes interval (default 10)",
-        required=False,
+    cfg.prepare(
+        [
+            {
+                "name_or_flags": ["--config", "-cfg"],
+                "kwargs": {
+                    "type": str,
+                    "help": "Configuration file",
+                    "required": False,
+                },
+            },
+            {
+                "name_or_flags": ["--logfile", "-log"],
+                "kwargs": {"type": str, "help": "Log file name", "required": False},
+            },
+            {
+                "name_or_flags": ["--airspace", "-asp"],
+                "kwargs": {"type": str, "help": "FIC airspace(s)", "required": True},
+            },
+            {
+                "name_or_flags": ["--full", "-fl"],
+                "kwargs": {
+                    "action": "store_true",
+                    "help": "Full version",
+                    "required": False,
+                },
+            },
+            {
+                "name_or_flags": ["--light", "-lt"],
+                "kwargs": {
+                    "action": "store_true",
+                    "help": "Light version",
+                    "required": False,
+                },
+            },
+            {
+                "name_or_flags": ["--hours", "-hrs"],
+                "kwargs": {
+                    "type": int,
+                    "help": "Hours limit (0 = endless)",
+                    "required": True,
+                },
+            },
+            {
+                "name_or_flags": ["--minutes", "-min"],
+                "kwargs": {
+                    "type": int,
+                    "help": "Minutes interval (default 10)",
+                    "required": True,
+                },
+            },
+        ]
     )
 
 
 def db_connect(connect):  # connect to database (for now only oracle)
+    global dbc
     if connect:
         log.info(
             "Cnnecting to "
@@ -81,7 +104,6 @@ def db_connect(connect):  # connect to database (for now only oracle)
             + cfg.get("db", "service")
         )
         oracledb.init_oracle_client(lib_dir=cfg.get("db", "libdir"))
-        global dbc
         try:
             dbc = oracledb.connect(
                 user=cfg.get("db", "user"),
@@ -90,6 +112,7 @@ def db_connect(connect):  # connect to database (for now only oracle)
                 port=cfg.get("db", "port"),
                 service_name=cfg.get("db", "service"),
             )
+            print(type(dbc))
             log.info("Connected to DB!")
         except Exception as e:
             log.error("Database " + cfg.get("db", "engine") + " problem " + str(e))

@@ -1,23 +1,18 @@
 import sys
 import configparser
 import argparse
+import os.path
 from collections import OrderedDict
 
-DEFAULT_SECTION = "_A_"
+DEFAULT_SECTION = "app"
 SORT_GROUPS = 2
 SORT_NAMES = 4
 
 
-def mainPath(full=False):
-    file_name = sys.argv[0].replace("\\", "/")
-    if full:
-        return file_name
-    else:
-        return file_name[: file_name.rfind("/") + 1]
-
-
 class Config:
-    def __init__(self, file_name=None, app_name=None):
+    def __init__(self, app_name=None):
+        self.app_path = self.mainpath(False)
+        self.app_name = self.mainpath(True)
         self.cfg_parser = configparser.ConfigParser()
         self.changed = False
         self.auto_save = False
@@ -27,14 +22,28 @@ class Config:
             "message": "",
         }  # resul code and message (errno, strerror)
         self.arg_parser = argparse.ArgumentParser(
-            prog=mainPath(False) if app_name is None else app_name
+            prog=self.mainpath(False) if app_name is None else app_name
         )
 
-        self.file_name = ""
-        if file_name:
-            self.load(file_name)
+    def mainpath(self, full=False):
+        file_name = sys.argv[0].replace("\\", "/")
+        if full:
+            return file_name
+        else:
+            return file_name[: file_name.rfind("/") + 1]
 
-    def read(self):
+    def prepare(self, arguments_to_add):
+        for arg in arguments_to_add:
+            self.arg_parser.add_argument(*arg["name_or_flags"], **arg["kwargs"])
+
+    def find_ini_par(self, argv):
+        for par in argv:
+            up = par.upper()
+            if "-CFG" in up or "-INI" in up:
+                return par.partition("=")[2]
+        return ""
+
+    def parse(self):
         self.args = self.arg_parser.parse_args()
 
     def error(self):
@@ -151,6 +160,10 @@ class Config:
 
     def load(self, file_name):
         try:
+            if not file_name:
+                file_name = self.app_path + "app.ini"
+                if not os.path.isfile(file_name):
+                    file_name = self.app_name[: self.app_name.rfind(".") + 1] + "ini"
             with open(file_name) as f:
                 self.cfg_parser.read_file(f)
                 self.file_name = file_name
@@ -158,7 +171,7 @@ class Config:
         except IOError as e:
             self.set_result(
                 e.errno,
-                e.strerror + " -> " + file_name,
+                (e.strerror or "") + " -> " + file_name,
             )
 
     def save_to(self, file_name):
@@ -171,7 +184,7 @@ class Config:
         except IOError as e:
             self.set_result(
                 e.errno,
-                e.strerror + " -> " + file_name,
+                (e.strerror or "") + " -> " + file_name,
             )
 
     def save(self):

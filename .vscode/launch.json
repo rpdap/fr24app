@@ -11,7 +11,7 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-             "args": ["-asp=LIMM,LIRR,LIBB", "-lt", "-hrs=1", "-min=10"] 
+            "args": ["-cfg=C:/Projekty/Python/fr24app/app.ini", "-asp=LIMM,LIRR,LIBB", "-lt", "-hrs=1", "-min=10"] 
         }
     ]
 }
