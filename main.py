@@ -127,7 +127,7 @@ def db_connect(connect):  # connect to database (for now only oracle)
 
 
 def insert_sql(
-    data, add_fields: tuple
+    data, add_fields: list
 ):  # make sql insert into table string from first data row and add-ons
     names = "INSERT INTO " + table_name + " ("
     values = " VALUES("
@@ -146,7 +146,7 @@ def insert_sql(
 
 
 def insert_rows(
-    data, add_fields: tuple
+    data, add_fields: list
 ):  # transfers api data row to database value insert list + add-ons fields
     rows = []
     for row in data:
