@@ -7,11 +7,12 @@
 
         {
             "name": "Python: Current File",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${file}",
-            "console": "integratedTerminal"
-            "justMyCode": true
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": ["-cfg=C:/Projekty/Python/fr24app/app.ini","-log=C:/Projekty/Python/fr24app/app.log", "-asp=LIMM,LIRR,LIBB", "-lt", "-hrs=1", "-min=1"]
         }
     ]
 }

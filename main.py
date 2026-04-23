@@ -13,29 +13,20 @@ from fr24sdk.exceptions import (
 dbc: oracledb.Connection
 client: Client
 
-params = {
-    "airspaces": [],
-    "full": False,
-    "version": "light",
-    "table_name": "FR24_LIVE_FLGT_POS_LT",
-}
-
 
 def configure():  # load configuration file and parse args from command line
-    global cfg, airspaces, full, version
+    global cfg, app_log, log, config_file, paramo, packet_list
+    paramo = {}
+    packet_list = ["config"]
     cfg = config.Config(app_name="FlightRadar24 API")
     arg_prepare()
     cfg.parse()
-
     logger_file = cfg.get("", "logfile")
     if not logger_file:
         logger_file = cfg.mainpath(False) + "app.log"
-    global app_log
-    app_log = Log("app", log_file=logger_file, rewrite_file=False)
-    global log
+    app_log = Log("app", log_file=logger_file, rewrite_file=True)
     log = app_log.get_logger()
 
-    global config_file
     config_file = cfg.load(cfg.get("", "logf"))
     if cfg.error():
         log.error(cfg.get_result(True))
@@ -46,18 +37,19 @@ def configure():  # load configuration file and parse args from command line
 
     # ---- parameters ----
     asp = cfg.get("", "airspace")
-    airspaces = asp.split(",")  # list of airspaces
-    if airspaces:  # check of all airspaces FIC id's
-        for fic in airspaces:
+    paramo["airspaces"] = asp.split(",")  # list of airspaces
+    if paramo["airspaces"]:  # check of all airspaces FIC id's
+        for fic in paramo["airspaces"]:
             if not fic:
                 log.error("Airspace(s) parameter!")
                 return False
     else:
         log.error("Airspace(s) parameter!")
         return False
-    params["full"] = cfg.get("", "full")
-    params["version"] = "full" if params["full"] else "light"
-    params["table_name"] = "FR24_LIVE_FLGT_POS_" + ("FL" if params["full"] else "LT")
+    paramo["full"] = cfg.get("", "full")
+    paramo["version"] = "full" if paramo["full"] else "light"
+    paramo["table_name"] = "FR24_LIVE_FLGT_POS_" + ("FL" if paramo["full"] else "LT")
+    return True
 
 
 def arg_prepare():  # command line argument definition
@@ -162,7 +154,7 @@ def db_connect(connect):  # connect to database (for now only oracle)
 def insert_sql(
     data, add_fields: list
 ):  # make sql insert into table string from first data row and add-ons
-    names = "INSERT INTO " + params["table_name"] + " ("
+    names = "INSERT INTO " + paramo["table_name"] + " ("
     values = " VALUES("
     counter = 1
     for row in data[:1]:  # row is list of tuples [(field_name, value object),...]
@@ -214,6 +206,7 @@ def data_mining(sleep_interval=60):
     try:
         client = Client(api_token=cfg.get("api", "token"))
         if client:
+            packet_list.clear()
             # log.info("API connected!")
             sleep_interval = int(cfg.get("", "minutes")) * 60
             hours_limit = int(cfg.get("", "hours"))
@@ -221,17 +214,21 @@ def data_mining(sleep_interval=60):
             if hours_limit > 0:
                 loop_count = int((hours_limit * 3600) / sleep_interval)
             log.info(
-                f"Data mining Live Flight Positions {params['version'].upper()}, airspaces {airspaces} : with {sleep_interval} seconds interval."
+                f"Data mining < Live Flight Positions {paramo['version'].upper()} > airspaces {paramo['airspaces']} : with {sleep_interval} seconds interval."
                 + (f" Period {hours_limit} hour(s)." if hours_limit > 0 else "")
             )
+            """loops_done = 0
             while loop_count != 0:
                 if loop_count != 0:
                     packet_id = new_packetID()
-                    for airspace in airspaces:
-                        log.info(f"   FIC airspace region <<< {airspace} >>>")
+                    packet_list.append(packet_id)
+                    for airspace in paramo["airspaces"]:
+                        log.info(
+                            f"   FIC airspace region <<< {airspace} >>> packet id: {packet_id}"
+                        )
                         api_result = None
                         try:
-                            if params["full"]:
+                            if paramo["full"]:
                                 api_result = client.live.flight_positions.get_full(
                                     airspaces=[airspace]
                                 )
@@ -247,14 +244,18 @@ def data_mining(sleep_interval=60):
                                 ]
                                 sql_cmd = insert_sql(api_result.data, add_list)
                                 sql_data = insert_rows(api_result.data, add_list)
-
-                                with dbc.cursor() as cursor:
-                                    cursor.prepare(sql_cmd)
-                                    cursor.executemany(None, sql_data)
-                                    log.info(
-                                        f"      DB inserted rows : {cursor.rowcount}"
-                                    )
-                                dbc.commit()
+                                try:
+                                    with dbc.cursor() as cursor:
+                                        cursor.prepare(sql_cmd)
+                                        cursor.executemany(None, sql_data)
+                                        log.info(
+                                            f"      DB inserted rows : {cursor.rowcount}"
+                                        )
+                                    dbc.commit()
+                                except Exception as de:
+                                    log.error("DB problem " + str(de))    
+                                    dbc.rollback()
+                                    
                                 time.sleep(1)
                             else:
                                 log.error("API problem NO DATA!")
@@ -281,17 +282,56 @@ def data_mining(sleep_interval=60):
 
                     if loop_count != -1000 and loop_count != 0:
                         loop_count -= 1
+                        loops_done += 1
+                    if loops_done > 5:
+                        loop_count = 0
                     msg = f"Waiting {sleep_interval} seconds. (Ctrl+C to stop)"
                     if loop_count > 0:
                         msg = msg + " " + str(loop_count) + " loops remainig."
                     if loop_count != 0:
                         log.info(msg)
-                        time.sleep(sleep_interval)
-
+                        time.sleep(sleep_interval)"""
         else:
             log.error("API problem : connection refused!")
     except Exception as a:
         log.error("API problem " + str(a))
+
+
+def events():
+    packet_list.append("69e9fde6")
+    packet_list.append("69e7188c")
+    packet_list.append("69e9fca8")
+    packet_list.append("69e9fd27")
+    packet_list.append("69e9fd67")
+    packet_list.append("69e9fda7")
+    packet_list.append("69e9fce8")
+
+    if packet_list:
+        sql_cmd = (
+            f"select distinct FR24_ID from {paramo['table_name']} where PACKET_ID in ("
+        )
+        for p in packet_list:
+            sql_cmd = sql_cmd + "'" + p + "',"
+        sql_cmd = sql_cmd[:-1] + ")"
+    else:
+        log.error("Events list is empty")
+        return
+    id_list = []
+    with dbc.cursor() as cursor:
+        for row in cursor.execute(sql_cmd):
+            id_list.append(row[0])
+    log.info(
+        f"Data mining < Live Flight Events Full > for {len(id_list)} FR24_ID in list."
+    )
+    idx = 0
+    while idx < len(id_list):
+        imx = min(len(id_list), idx + 15)
+        ils = ""
+        for i in range(idx, imx):
+            ils = ils + id_list[i] + "'"
+        ils = ils[:-1]
+        """ tady budem API srat """
+        idx += 12
 
 
 def main():
@@ -300,6 +340,7 @@ def main():
         try:
             if init_client():
                 data_mining()
+            events()
         except KeyboardInterrupt:
             log.info("The program was terminated by the user!")
         finally:
