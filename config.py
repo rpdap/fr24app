@@ -2,7 +2,7 @@ import sys
 import configparser
 import argparse
 import os.path
-from collections import OrderedDict
+import base64
 
 DEFAULT_SECTION = "app"
 SORT_GROUPS = 2
@@ -65,6 +65,22 @@ class Config:
     def get_result_msg(self):
         return self.result["message"]
 
+    def encode_decode(self, data: str, enc: bool):
+        if data:
+            if data.startswith("~") or enc:
+                pw = ")tReb0rK83lP(*)"
+                if data.startswith("~"):
+                    data = data[1:]
+                    data = base64.b64decode(data).decode()
+
+                cp = (pw * (len(data) // len(pw) + 1))[: len(data)]
+                data = "".join(chr(ord(c) ^ ord(p)) for c, p in zip(data, cp))
+                if enc:
+                    return "~" + base64.b64encode(data.encode()).decode()
+                else:
+                    return data
+        return data
+
     def get(self, section_name, id):
         value = ""
         if not self.error():
@@ -79,7 +95,7 @@ class Config:
                 value = getattr(self.args, id)
             except AttributeError:
                 value = ""
-        return value
+        return self.encode_decode(value, False)  # last check if param neds decrypt (~)
 
     def get_full(self, section_name, id):
         ret = self.get(section_name, id)
@@ -121,15 +137,20 @@ class Config:
         else:
             self.sorted = self.sorted ^ SORT_NAMES
 
-    def set(self, section_name, id, value):
+    def set(self, section_name, id, value: str):
         if not section_name:
             section_name = DEFAULT_SECTION
         if not self.cfg_parser.has_section(section_name):
             self.cfg_parser.add_section(section_name)
+        if value.startswith("~"):
+            value = self.encode_decode(value[1:], True)
         self.cfg_parser.set(section_name, id, value)
         self.changed = True
         if self.auto_save:
             self.save()
+
+    def set_crypted(self, section_name, id, value):
+        self.set(section_name, id, self.encode_decode(value, True))
 
     def remove(self, section_name, id):
         if not section_name:

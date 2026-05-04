@@ -338,9 +338,13 @@ def main():
     if configure():
         db_connect(True)
         try:
-            if init_client():
+            """if init_client():
                 data_mining()
-            events()
+            events()"""
+
+            print(cfg.get("app", "password"))
+            print(cfg.get("app", "newpwd"))
+
         except KeyboardInterrupt:
             log.info("The program was terminated by the user!")
         finally:
