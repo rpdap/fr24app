@@ -4,29 +4,24 @@ import config
 from log import Log
 import oracledb
 from fr24sdk.client import Client
-from fr24sdk.exceptions import (
-    ApiError,
-    AuthenticationError,
-    Fr24SdkError,
-)  # Import relevant exceptions
 
 dbc: oracledb.Connection
 client: Client
 
 
 def configure():  # load configuration file and parse args from command line
-    global cfg, app_log, log, config_file, paramo, packet_list
-    paramo = {}
-    packet_list = ["config"]
-    cfg = config.Config(app_name="FlightRadar24 API")
-    arg_prepare()
-    cfg.parse()
+    global cfg, app_log, log, config_file, paramo, packet_list  # globals
+    paramo = {}  # dictionary with app parameters
+    packet_list = []  # list with packet IDs
+    cfg = config.Config(app_name="FlightRadar24 API")  # prepare and load configuration
+    print(cfg.get_result(True))
+    arg_prepare()  # prepare commandline parameters dictionary list
+    cfg.parse()  # parse argument list
     logger_file = cfg.get("", "logfile")
     if not logger_file:
-        logger_file = cfg.mainpath(False) + "app.log"
+        logger_file = cfg.app_path + "app.log"
     app_log = Log("app", log_file=logger_file, rewrite_file=True)
     log = app_log.get_logger()
-
     config_file = cfg.load(cfg.get("", "logf"))
     if cfg.error():
         log.error(cfg.get_result(True))
@@ -305,7 +300,6 @@ def events():
     packet_list.append("69e9fd67")
     packet_list.append("69e9fda7")
     packet_list.append("69e9fce8")
-
     if packet_list:
         sql_cmd = (
             f"select distinct FR24_ID from {paramo['table_name']} where PACKET_ID in ("
@@ -341,9 +335,6 @@ def main():
             """if init_client():
                 data_mining()
             events()"""
-
-            print(cfg.get("app", "password"))
-            print(cfg.get("app", "newpwd"))
 
         except KeyboardInterrupt:
             log.info("The program was terminated by the user!")

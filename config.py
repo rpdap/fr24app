@@ -8,45 +8,48 @@ DEFAULT_SECTION = "app"
 SORT_GROUPS = 2
 SORT_NAMES = 4
 
+MP_NAME = 2
+MP_PATH = 4
+
 
 class Config:
     def __init__(self, app_name=None):
-        self.app_path = self.mainpath(False)
-        self.app_name = self.mainpath(True)
-        self.cfg_parser = configparser.ConfigParser()
-        self.changed = False
-        self.auto_save = False
+        self.app_path = self.mainpath(MP_PATH)  # application path
+        self.app_name = self.mainpath(MP_NAME)  # application name without path
+        self.cfg_parser = configparser.ConfigParser()  # parser init
+        self.changed = False  # true if parameters list changed
+        self.auto_save = False  # set autosave after change
         self.sorted = SORT_GROUPS + SORT_NAMES  # sorting sections and items
-        self.result = {
+        self.result = {  # result dict record
             "code": 0,
-            "message": "",
+            "message": "Ok " + ,
         }  # resul code and message (errno, strerror)
-        self.arg_parser = argparse.ArgumentParser(
-            prog=self.mainpath(False) if app_name is None else app_name
+        self.arg_parser = argparse.ArgumentParser(  # arguments parsing
+            prog=self.app_name if app_name is None else app_name
         )
 
-    def mainpath(self, full=False):
+    def mainpath(
+        self, type: int
+    ):  # returns application path (MP_PATH) or name (MP_NAME) or both (MP_PATH + MP_NAME)
         file_name = sys.argv[0].replace("\\", "/")
-        if full:
-            return file_name
-        else:
-            return file_name[: file_name.rfind("/") + 1]
+        rp: str = ""
+        if type & MP_PATH > 0:
+            rp = rp + file_name[: file_name.rfind("/") + 1]
+        if type & MP_NAME > 0:
+            rp = rp + file_name[file_name.rfind("/") + 1 :]
+        return rp
 
-    def prepare(self, arguments_to_add):
+    def prepare(
+        self,
+        arguments_to_add: list,  # list of arguments definition (each argument id dictionary)
+    ):
         for arg in arguments_to_add:
             self.arg_parser.add_argument(*arg["name_or_flags"], **arg["kwargs"])
 
-    def find_ini_par(self, argv):
-        for par in argv:
-            up = par.upper()
-            if "-CFG" in up or "-INI" in up:
-                return par.partition("=")[2]
-        return ""
-
-    def parse(self):
+    def parse(self):  # parse prepared arguments with commandline args
         self.args = self.arg_parser.parse_args()
 
-    def error(self):
+    def error(self):  # return Treu if cone != 0
         return self.result["code"] != 0
 
     def set_result(self, code, msg):
@@ -55,7 +58,7 @@ class Config:
 
     def get_result(self, as_string=False):
         if as_string:
-            return f"code: {self.result['code']}, mesage: {self.result['message']}"
+            return f'code: {self.result["code"]}, mesage: "{self.result["message"]}"'
         else:
             return self.result
 
