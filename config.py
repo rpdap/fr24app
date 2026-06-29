@@ -22,7 +22,7 @@ class Config:
         self.sorted = SORT_GROUPS + SORT_NAMES  # sorting sections and items
         self.result = {  # result dict record
             "code": 0,
-            "message": "Ok " + ,
+            "message": "Ok ",
         }  # resul code and message (errno, strerror)
         self.arg_parser = argparse.ArgumentParser(  # arguments parsing
             prog=self.app_name if app_name is None else app_name
